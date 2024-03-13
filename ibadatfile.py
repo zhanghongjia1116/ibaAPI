@@ -18,16 +18,6 @@ V = client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_VARIANT, 2)   # noqa: F821
 import struct
 print(struct.calcsize("P") * 8)
 
-
-def read_ibadat(
-    path: os.PathLike,
-    raw_mode: bool = False,
-    preload: bool = True,
-) -> pd.DataFrame:
-    with IbaDatFile(path, raw_mode, preload) as file:
-        return file.data()
-
-
 class IbaChannel:
     """
     Class representing a single channel of an iba .dat file
@@ -183,7 +173,9 @@ class IbaDatFile:
     def starttime(self) -> datetime.datetime:
         """Return the recording start time as datetime object."""
         return datetime.datetime.strptime(
-            self.reader.QueryInfoByName("starttime"), "%d.%m.%Y %H:%M:%S.%f"
+            # self.reader.QueryInfoByName("starttime"), "%d.%m.%Y %H:%M:%S.%f"
+            self.reader.QueryInfoByName("starttime"), "%d.%m.%Y %H:%M:%S"
+
         )
 
     def starttime_as_str(self) -> str:
@@ -201,14 +193,45 @@ class IbaDatFile:
         df.index = self.index()
         return df
 
+def read_ibadat(
+    path: os.PathLike,
+    raw_mode: bool = False,
+    preload: bool = True,
+) -> pd.DataFrame:
+    with IbaDatFile(path, raw_mode, preload) as file:
+        # channel = file.return_channel_names()
+        # channel_count = len(channel)
+
+        # columns = file.data().columns
+        # columns_count = len(columns)
+
+        # diff = list(set(channel) - set(columns))
+        # print(channel)
+        # print(set(channel))
+        # print(diff)
+
+        return file.data()
+    
 
 if __name__ == '__main__':
+    
     # path = pathlib.Path("../data/")
     # df = read_ibadat(path)
     # print(df)
-    data_path = pathlib.Path("data/bao_t000.dat")
+    # data_dir = pathlib.Path(r"G:\原始数据（201807-201808勿删！）\PDA\201807\180718")
+    # print(data_dir)
+    # single_dir_data = list(data_dir.glob("*.dat"))
+    
+    # for i in range(len(single_dir_data)):
+    #     print(single_dir_data[i])
+    #     df = read_ibadat(single_dir_data[i])
+    #     print(df.shape)
+    #     if i == 5:
+    #         break
+    data_path = pathlib.Path("data/J1423B58800200  _0-1000mym-1534mm.dat")
     df = read_ibadat(data_path)
     
-    # 当前路径
-    print(df.columns.shape)
-    df.to_csv("data/bao_t000.csv", index=False, encoding="utf-8")
+    # # 当前路径
+    # print(df.columns[:60])
+    # print(df.columns.shape)
+    # df.to_csv("data/bao_t000.csv", index=False, encoding="utf-8")
