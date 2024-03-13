@@ -1,0 +1,8 @@
+# data目录
+data/
+
+# .venv目录
+.venv/
+
+# idea目录
+.idea/
