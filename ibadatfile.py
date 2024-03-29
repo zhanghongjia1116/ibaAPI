@@ -14,7 +14,8 @@ from win32com import client
 
 A = 0
 B = 0
-V = client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_VARIANT, 2)   # noqa: F821
+V = client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_VARIANT, 2)  # noqa: F821
+
 
 # print(struct.calcsize("P") * 8)   # 查看当前python解释器是32位还是64位
 
@@ -30,13 +31,12 @@ class IbaChannel:
     def name(self) -> str:
         """Return the channel name."""
         _name = self.channel.QueryInfoByName("name")
-        if _name != '':  # 判断变量名是否为空
-            if _name[0] == ' ':  # 去除变量组第一个变量前的空格
-                _name = _name[1:]
-        else:
-            _name = str(self.channel.ModuleNumber) + ':' + str(self.channel.NumberInModule)  # 如果变量名为空，使用组号加变量号
+        if _name == '':
+            _name = f'{str(self.channel.ModuleNumber)}:{str(self.channel.NumberInModule)}'
             print(_name)
-        return self.channel.QueryInfoByName("name")
+        elif _name[0] == ' ':  # 去除变量组第一个变量前的空格
+            _name = _name[1:]
+        return _name
 
     def minscale(self):
         """Return the channel minscale."""
@@ -61,11 +61,11 @@ class IbaChannel:
     def pda_type(self) -> str:
         """Return the data type of the channel. Only used for shougang data."""
         return self.channel.QueryInfoByName("$PDA_Typ")
-    
+
     def pda_tbase(self) -> str:
         """Return the sample rate of the channel. only used for shougang data."""
         return self.channel.QueryInfoByName("$PDA_Tbase")
-    
+
     def is_time_based(self) -> bool:
         """Return bool whether series is time based."""
         return self.channel.IsDefaultTimebased()
@@ -101,11 +101,12 @@ class IbaChannel:
 
 class IbaDatFile:
     """Class representing an Iba .dat file"""
+
     def __init__(
-        self,
-        path: os.PathLike,
-        raw_mode: bool = False,
-        preload: bool = True,
+            self,
+            path: os.PathLike,
+            raw_mode: bool = False,
+            preload: bool = True,
     ):
         """
         Initialize the dat file object.
@@ -138,7 +139,7 @@ class IbaDatFile:
         """Iterator interface, returns next channel."""
         enumerator = self.reader.EnumChannels()  # 获取组名
         while not enumerator.IsAtEnd():
-            channel = enumerator.Next()  
+            channel = enumerator.Next()
             yield IbaChannel(channel)
 
     def __getitem__(self, index: str) -> IbaChannel:
@@ -180,13 +181,13 @@ class IbaDatFile:
     def recorder_version(self) -> str:
         """Return the software version of the recorder."""
         return self.reader.QueryInfoByName("version")
-    
-    # @deprecated(reason="This method is deprecated, the result is null.")
+
+    @deprecated(reason="This method is deprecated, the result is null.")
     def recorder_name(self) -> str:
         """Return the name of the recorder."""
         return self.reader.QueryInfoByName("name")
 
-    # @deprecated(reason="This method is deprecated, the result is null.")
+    @deprecated(reason="This method is deprecated, the result is null.")
     def recorder_type(self) -> str:
         """Return the software version of the recorder."""
         return self.reader.QueryInfoByName("type")
@@ -209,8 +210,8 @@ class IbaDatFile:
     def data(self) -> pd.DataFrame:
         """Return data as a dataframe."""
         data = {channel.name(): channel.data() for channel in self}
-        df = pd.DataFrame.from_dict(data)
-        return df
+        return pd.DataFrame.from_dict(data)
+
 
 def read_ibadat(path: os.PathLike, raw_mode: bool = False, preload: bool = True) -> pd.DataFrame:
     """
@@ -218,7 +219,7 @@ def read_ibadat(path: os.PathLike, raw_mode: bool = False, preload: bool = True)
     """
     with IbaDatFile(path, raw_mode, preload) as file:
         return file.data()
-    
+
 
 if __name__ == '__main__':
     data_path = pathlib.Path("data/HD12813900200_1.dat")
@@ -237,7 +238,6 @@ if __name__ == '__main__':
     xOffset = float(0)  # 获取当前频道的滞后时间，float
     data = object  # 获取当前频道的数据，返回touple
 
-        
     with IbaDatFile(data_path) as file:
         # 所有特征名
         all_features = file.return_channel_names()
@@ -246,9 +246,9 @@ if __name__ == '__main__':
         # start time
         start_time = file.starttime()
         # print(start_time)
-        
+
         for channel in file:
-            if channel != None and channel.is_analog() == 1:
+            if channel is not None and channel.is_analog() == 1:
                 # print(channel.name())
                 a = channel.name()
                 # print(channel.is_analog())
@@ -260,7 +260,7 @@ if __name__ == '__main__':
         try:
             print(file.recorder_name())
             print(file.recorder_type())
-            
-            
+
+
         except Exception as e:
             print(e)
