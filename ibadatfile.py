@@ -28,12 +28,15 @@ class IbaChannel:
         """Initialize the channel object."""
         self.channel = channel
 
+    def index(self):
+        return f'[{str(self.channel.ModuleNumber)}:{str(self.channel.NumberInModule)}]'
+
     def name(self) -> str:
         """Return the channel name."""
         _name = self.channel.QueryInfoByName("name")
         if _name == '':
-            _name = f'{str(self.channel.ModuleNumber)}:{str(self.channel.NumberInModule)}'
-            print(_name)
+            _name = self.index()
+            # print(_name)
         elif _name[0] == ' ':  # 去除变量组第一个变量前的空格
             _name = _name[1:]
         return _name
@@ -47,7 +50,7 @@ class IbaChannel:
         return self.channel.QueryInfoByName("maxscale")
 
     def xoffset(self) -> int:
-        """Return the channel x offset (in frames?)."""
+        """返回通道x偏移（以帧为单位）一般值为0。"""
         return self.channel.QueryInfoByName("xoffset")
 
     def unit(self) -> str:
@@ -59,19 +62,19 @@ class IbaChannel:
         return self.channel.QueryInfoByName("digchannel")
 
     def pda_type(self) -> str:
-        """Return the data type of the channel. Only used for shougang data."""
+        """Return the data type of the channel. Only used for ShouGang data."""
         return self.channel.QueryInfoByName("$PDA_Typ")
 
     def pda_tbase(self) -> str:
-        """Return the sample rate of the channel. only used for shougang data."""
+        """获取当前频道的采样率，返回字符串. Only used for ShouGang data."""
         return self.channel.QueryInfoByName("$PDA_Tbase")
 
     def is_time_based(self) -> bool:
-        """Return bool whether series is time based."""
+        """返回bool序列是否基于时间。"""
         return self.channel.IsDefaultTimebased()
 
     def is_bool(self) -> bool:
-        """Return true if series contains boolean values."""
+        """如果序列包含布尔值，则返回1。"""
         return self.channel.IsDigital()
 
     def is_analog(self) -> bool:
@@ -125,54 +128,49 @@ class IbaDatFile:
         self.reader.RawMode = int(raw_mode)
 
     def __enter__(self):
-        """Magic method for context manager."""
+        """在进入with语句块时，会执行__enter__方法中的操作，打开文件。"""
         self.reader.Open(self.path)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Magic method for context manager, close the reader.
+        在退出with语句块时，会执行__exit__方法中的操作，关闭文件。
         """
         self.reader.Close()
 
     def __iter__(self) -> Generator[IbaChannel, None, None]:
-        """Iterator interface, returns next channel."""
+        """__iter__ 方法，可以使用 for 循环对对象进行迭代"""
         enumerator = self.reader.EnumChannels()  # 获取组名
-        while not enumerator.IsAtEnd():
-            channel = enumerator.Next()
-            yield IbaChannel(channel)
+        while not enumerator.IsAtEnd():  # 遍历所有频道
+            channel = enumerator.Next()  # 枚举频道
+            if channel is not None:  # 如果频道不为空
+                yield IbaChannel(channel)  # 返回频道对象
 
     def __getitem__(self, index: str) -> IbaChannel:
+
         for channel in self:
             if channel.name() == index:
                 return channel
         raise IndexError(index)
 
-    def open(self, path: os.PathLike):
-        """Open .dat file from *path."""
-        self.path = os.fspath(path)
-        self.reader.Open(self.path)
-        return self
-
-    def close(self):
-        """Close reader."""
-        self.reader.Close()
-
-    def index(self) -> pd.DatetimeIndex:
-        """Return the time index for the channels."""
-        start = self.starttime()
+    def timeIndex(self) -> pd.DatetimeIndex:
+        """返回数据每一行的时间索引。"""
+        start = self.start_time()
         frames = self.frames()
         clk = self.clk()
         times = [start + datetime.timedelta(seconds=i * clk) for i in range(frames)]
         return pd.DatetimeIndex(times, name="time")
 
-    def frames(self) -> int:
-        """Return amount of frames of channels."""
-        return int(self.reader.QueryInfoByName("frames"))
+    def channel_names(self) -> list[str]:
+        """Return list of channel names."""
+        return [channel.name() for channel in self]
 
-    def signal_count(self) -> int:
-        """Return amount of channels."""
-        return int(self.reader.QueryInfoByName("totalSignalCount"))
+    def query_info_by_name(self, name: str) -> str:
+        return self.reader.QueryInfoByName(name)
+
+    def frames(self) -> int:
+        """返回通道的帧数, 即数据的行数"""
+        return int(self.reader.QueryInfoByName("frames"))
 
     def clk(self) -> float:
         """读取采样频率"""
@@ -182,30 +180,23 @@ class IbaDatFile:
         """Return the software version of the recorder."""
         return self.reader.QueryInfoByName("version")
 
-    @deprecated(reason="This method is deprecated, the result is null.")
     def recorder_name(self) -> str:
         """Return the name of the recorder."""
         return self.reader.QueryInfoByName("name")
 
-    @deprecated(reason="This method is deprecated, the result is null.")
     def recorder_type(self) -> str:
         """Return the software version of the recorder."""
         return self.reader.QueryInfoByName("type")
 
-    def starttime(self) -> datetime.datetime:
+    def start_time(self) -> datetime.datetime:
         """Return the recording start time as datetime object."""
         return datetime.datetime.strptime(
             self.reader.QueryInfoByName("starttime"), "%d.%m.%Y %H:%M:%S.%f"
-            # self.reader.QueryInfoByName("starttime"), "%d.%m.%Y %H:%M:%S"
         )
 
-    def starttime_as_str(self) -> str:
+    def start_time_as_str(self) -> str:
         """Return the recording start time as str."""
         return self.reader.QueryInfoByName("starttime")
-
-    def return_channel_names(self) -> list[str]:
-        """Return list of channel names."""
-        return [channel.name() for channel in self]
 
     def data(self) -> pd.DataFrame:
         """Return data as a dataframe."""
@@ -222,45 +213,4 @@ def read_ibadat(path: os.PathLike, raw_mode: bool = False, preload: bool = True)
 
 
 if __name__ == '__main__':
-    data_path = pathlib.Path("data/HD12813900200_1.dat")
-    # data_path = pathlib.Path("data/bao_t000.dat")
-
-    # # data_path = pathlib.Path("data/J1423B58800200  _0-1000mym-1534mm.dat")
-    # df = read_ibadat(data_path)
-
-    # # 找到第一行中值为 True 或 False 的列 (删除模拟量)
-    # columns_to_drop = df.columns[df.iloc[0].isin([True, False])]
-    # df.drop(columns=columns_to_drop, inplace=True)
-    # df.to_csv("data/bao_t020.csv", index=False)
-
-    # 新建测试
-    xbase = float(0)  # 获取当前频道的采样率，float
-    xOffset = float(0)  # 获取当前频道的滞后时间，float
-    data = object  # 获取当前频道的数据，返回touple
-
-    with IbaDatFile(data_path) as file:
-        # 所有特征名
-        all_features = file.return_channel_names()
-        print(len(all_features))
-
-        # start time
-        start_time = file.starttime()
-        # print(start_time)
-
-        for channel in file:
-            if channel is not None and channel.is_analog() == 1:
-                # print(channel.name())
-                a = channel.name()
-                # print(channel.is_analog())
-                # if (channel.IsDefaultTimebased() == 1):  # 若是时间基础的数据
-                #     xbase, xOffset, data = channel.QueryTimebasedData(xbase, xOffset, data)
-                # else:
-                #     xbase, xOffset, data = channel.QueryLengthbasedData(xbase, xOffset, data)
-
-        try:
-            print(file.recorder_name())
-            print(file.recorder_type())
-
-
-        except Exception as e:
-            print(e)
+    data_path = pathlib.Path("data/H124214505100_1.dat")
