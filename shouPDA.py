@@ -199,13 +199,21 @@ def chunk_export_single_steel(steel_path, analog_dir, digital_dir, progress_dict
             return
         
         for start in range(0, analog_length, chunk_size):
-            chunk_analog = {key: analog_data[key][start:start + chunk_size] for key in analog_keys}
-            chunk_digital = {key: digital_data[key][start:start + chunk_size] for key in digital_keys}
+            chunk_analog = {
+                key: analog_data[key][start:start + chunk_size] for key in analog_keys}
+            
+            chunk_digital = {
+                key: digital_data[key][start:start + chunk_size] for key in digital_keys}
+            
             df_analog_chunk = pd.DataFrame.from_dict(chunk_analog)
             df_digital_chunk = pd.DataFrame.from_dict(chunk_digital)
-            df_analog_chunk.to_csv(rf"{analog_dir}/{file_name_without_suffix}_analog.csv", mode='a', index=False, header=not Path(rf"{analog_dir}/{file_name_without_suffix}_analog.csv").exists())
-            df_digital_chunk.to_csv(rf'{digital_dir}/{file_name_without_suffix}_digital.csv', mode='a', index=False, header=not Path(rf'{digital_dir}/{file_name_without_suffix}_digital.csv').exists())
-        
+            
+            df_analog_chunk.to_csv(rf"{analog_dir}/{file_name_without_suffix}_analog.csv", mode='a',
+                                   index=False, header=not Path(rf"{analog_dir}/{file_name_without_suffix}_analog.csv").exists())
+            
+            df_digital_chunk.to_csv(rf'{digital_dir}/{file_name_without_suffix}_digital.csv', mode='a',
+                                    index=False, header=not Path(rf'{digital_dir}/{file_name_without_suffix}_digital.csv').exists())
+
         # 更新进度
         progress_dict[steel_path] = True
         completed = sum(progress_dict.values())
@@ -237,10 +245,8 @@ if __name__ == '__main__':
     
     # export_single_steel(all_steel_path[0], analog_dir, digital_dir)
 
-    # 使用 Manager 进行进程间数据共享
     with Manager() as manager:
         progress_dict = manager.dict({steel_path: False for steel_path in all_steel_path})
-        # 创建进程池，设置进程数为可用 CPU 核心数
         with Pool() as pool:
             # 使用 starmap 将参数传递给每个进程
             pool.starmap(chunk_export_single_steel, [(steel_path, analog_dir, digital_dir, progress_dict) for steel_path in all_steel_path])

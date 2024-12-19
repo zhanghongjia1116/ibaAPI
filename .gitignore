@@ -12,3 +12,18 @@ data/
 
 # data目录
 data/
+
+# csv文件
+*.csv
+
+# dat文件
+*.dat
+
+# xlsx文件
+*.xlsx
+
+# pycache目录
+__pycache__/
+
+# dll
+*.dll
