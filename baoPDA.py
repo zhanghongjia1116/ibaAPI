@@ -53,6 +53,6 @@ class BaoPDA(IbaDatFile):
 if __name__ == '__main__':
     pda_data_path = Path('./data/bao_t000.dat')
     # df1 = read_ibadat(pda_data_path_1)
-    with IbaDatFile(pda_data_path) as file:
+    with BaoPDA(pda_data_path) as file:
         df = file.data()
         print(df)

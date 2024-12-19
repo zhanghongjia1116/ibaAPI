@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import os
-from typing import Generator
 import datetime
+import os
 import pathlib
-from deprecated import deprecated
 import struct
+from typing import Generator
+
 import numpy as np
 import pandas as pd
 import pythoncom
@@ -16,8 +16,7 @@ A = 0
 B = 0
 V = client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_VARIANT, 2)  # noqa: F821
 
-
-# print(struct.calcsize("P") * 8)   # 查看当前python解释器是32位还是64位
+# print("Python version: ", struct.calcsize("P") * 8)  # 查看当前python解释器是32位还是64位
 
 class IbaChannel:
     """
@@ -87,12 +86,12 @@ class IbaChannel:
             data = np.array(self.channel.QueryTimebasedData(A, B, V)[2])
         else:
             data = np.array(self.channel.QueryLengthbasedData(A, B, V)[2])
-        if self.is_bool():
-            return data.astype(bool)
-        elif self.pda_type() == "int16":
-            return data.astype("int16")
-        else:
-            return data
+        # if self.is_bool():
+            # return data.astype(bool)
+        # elif self.pda_type() == "int16":
+        #     return data.astype("int16")
+        # else:
+        return data
 
     def series(self) -> pd.Series:
         return pd.Series(self.data(), name=self.name())
@@ -147,7 +146,6 @@ class IbaDatFile:
                 yield IbaChannel(channel)  # 返回频道对象
 
     def __getitem__(self, index: str) -> IbaChannel:
-
         for channel in self:
             if channel.name() == index:
                 return channel

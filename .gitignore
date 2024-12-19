@@ -6,3 +6,9 @@ data/
 
 # idea目录
 .idea/
+
+# vscode目录
+.vs
+
+# data目录
+data/
