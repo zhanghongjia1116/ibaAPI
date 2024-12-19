@@ -98,6 +98,12 @@ class ShouPDA(IbaDatFile):
                 
         for channel in self:
             name = channel.name()
+            if self.name_target is None:
+                pass
+            else:
+                if channel.name() not in self.name_target:
+                    continue
+                
             data = channel.data()
             base = float(channel.pda_tbase())
             x_offset = float(channel.xoffset())
@@ -172,53 +178,61 @@ def export_single_steel(steel_path, analog_dir, digital_dir):
 
 def chunk_export_single_steel(steel_path, analog_dir, digital_dir, progress_dict, chunk_size=3000):
     pda_data_path = Path(steel_path)
-    
-    with ShouPDA(pda_data_path, name_target=None, down_sample=5) as file:
-        # steel_id = file.coil_id()
-        file_name_without_suffix = os.path.splitext(os.path.basename(steel_path))[0]
-        file.load_data()
-        
-        # 分块处理模拟数据
-        analog_data = file.analog_data
-        analog_keys = list(analog_data.keys())
-        analog_length = len(analog_data[analog_keys[0]])
-        
-        # 分块处理数字数据
-        digital_data = file.digital_data
-        digital_keys = list(digital_data.keys())
-        digital_length = len(digital_data[digital_keys[0]])
-        
-        if analog_length != digital_length:
-            assert 'Analog data length is not equal to digital data length.'
-        
-        if analog_length < chunk_size:
-            df_analog = pd.DataFrame.from_dict(analog_data)
-            df_analog.to_csv(rf"{analog_dir}/{file_name_without_suffix}_analog.csv", index=False)
-            df_digital = pd.DataFrame.from_dict(digital_data)
-            df_digital.to_csv(rf'{digital_dir}/{file_name_without_suffix}_digital.csv', index=False)
-            return
-        
-        for start in range(0, analog_length, chunk_size):
-            chunk_analog = {
-                key: analog_data[key][start:start + chunk_size] for key in analog_keys}
-            
-            chunk_digital = {
-                key: digital_data[key][start:start + chunk_size] for key in digital_keys}
-            
-            df_analog_chunk = pd.DataFrame.from_dict(chunk_analog)
-            df_digital_chunk = pd.DataFrame.from_dict(chunk_digital)
-            
-            df_analog_chunk.to_csv(rf"{analog_dir}/{file_name_without_suffix}_analog.csv", mode='a',
-                                   index=False, header=not Path(rf"{analog_dir}/{file_name_without_suffix}_analog.csv").exists())
-            
-            df_digital_chunk.to_csv(rf'{digital_dir}/{file_name_without_suffix}_digital.csv', mode='a',
-                                    index=False, header=not Path(rf'{digital_dir}/{file_name_without_suffix}_digital.csv').exists())
 
-        # 更新进度
-        progress_dict[steel_path] = True
-        completed = sum(progress_dict.values())
-        total = len(progress_dict)
-        print(f"Progress: {completed}/{total} ({(completed / total) * 100:.2f}%)")
+    try:
+        with ShouPDA(pda_data_path, name_target=None, down_sample=5) as file:
+            # steel_id = file.coil_id()
+            file_name_without_suffix = os.path.splitext(os.path.basename(steel_path))[0]
+            file.load_data()
+            
+            # 分块处理模拟数据
+            analog_data = file.analog_data
+            analog_keys = list(analog_data.keys())
+            analog_length = len(analog_data[analog_keys[0]])
+            
+            # 分块处理数字数据
+            digital_data = file.digital_data
+            digital_keys = list(digital_data.keys())
+            digital_length = len(digital_data[digital_keys[0]])
+            
+            if analog_length != digital_length:
+                assert 'Analog data length is not equal to digital data length.'
+            
+            if analog_length < chunk_size:
+                df_analog = pd.DataFrame.from_dict(analog_data)
+                df_analog.to_csv(rf"{analog_dir}/{file_name_without_suffix}_analog.csv", index=False)
+                df_digital = pd.DataFrame.from_dict(digital_data)
+                df_digital.to_csv(rf'{digital_dir}/{file_name_without_suffix}_digital.csv', index=False)
+                return
+            
+            for start in range(0, analog_length, chunk_size):
+                chunk_analog = {
+                    key: analog_data[key][start:start + chunk_size] for key in analog_keys}
+                
+                chunk_digital = {
+                    key: digital_data[key][start:start + chunk_size] for key in digital_keys}
+                
+                df_analog_chunk = pd.DataFrame.from_dict(chunk_analog)
+                df_digital_chunk = pd.DataFrame.from_dict(chunk_digital)
+                
+                df_analog_chunk.to_csv(rf"{analog_dir}/{file_name_without_suffix}_analog.csv", mode='a',
+                                    index=False, header=not Path(rf"{analog_dir}/{file_name_without_suffix}_analog.csv").exists())
+                
+                df_digital_chunk.to_csv(rf'{digital_dir}/{file_name_without_suffix}_digital.csv', mode='a',
+                                        index=False, header=not Path(rf'{digital_dir}/{file_name_without_suffix}_digital.csv').exists())
+    except Exception as e:
+        print(f'Error: {e}')
+        print(f'导出失败: {steel_path}')
+        failed_steel.append(steel_path)
+        # 写入日志
+        with open(r'./errorlog.txt', mode='a', encoding='gbk') as f:
+            f.write(steel_path + ' ' + 'error' + '\n')
+        
+    # 更新进度
+    progress_dict[steel_path] = True
+    completed = sum(progress_dict.values())
+    total = len(progress_dict)
+    print(f"Progress: {completed}/{total} ({(completed / total) * 100:.2f}%)")
     
 
 if __name__ == '__main__':
@@ -230,23 +244,30 @@ if __name__ == '__main__':
     #     df_analog = pd.DataFrame.from_dict(file.analog_data)
     #     df_digital = pd.DataFrame.from_dict(file.digital_data)
     #     print(df_analog)
-    
+    global failed_steel
+    failed_steel = []
     analog_dir = r'E:\张洪嘉硕士论文\dataset\1CD61\analog'
     digital_dir = r'E:\张洪嘉硕士论文\dataset\1CD61\digital'
+    
+    # analog_dir = r'E:\baoSteel\ibaAPI\test\analog'
+    # digital_dir = r'E:\baoSteel\ibaAPI\test\digital'
     # chunk_export_single_steel(pda_data_path, analog_dir, digital_dir, chunk_size=3000)
 
     # 获取文件夹下所有文件路径
     steel_dir = r'E:\张洪嘉硕士论文\dataset\1CD61\rawdata'
+    # steel_dir= r'E:\baoSteel\ibaAPI\test\dat2'
     all_steel_path = [os.path.join(steel_dir, steel) for steel in os.listdir(steel_dir)]
-    
-    # # 使用tqdm遍历
-    # for i in trange(len(all_steel_path), desc='Processing{0}'.format(all_steel_path[0])):
-    #     chunk_export_single_steel(all_steel_path[i], analog_dir, digital_dir)
-    
-    # export_single_steel(all_steel_path[0], analog_dir, digital_dir)
 
     with Manager() as manager:
         progress_dict = manager.dict({steel_path: False for steel_path in all_steel_path})
         with Pool() as pool:
             # 使用 starmap 将参数传递给每个进程
             pool.starmap(chunk_export_single_steel, [(steel_path, analog_dir, digital_dir, progress_dict) for steel_path in all_steel_path])
+
+    print(f'导出失败的文件: {failed_steel}')
+
+    # # 使用tqdm遍历
+    # for i in trange(len(all_steel_path), desc='Processing{0}'.format(all_steel_path[0])):
+    #     chunk_export_single_steel(all_steel_path[i], analog_dir, digital_dir)
+    
+    # export_single_steel(all_steel_path[0], analog_dir, digital_dir)
